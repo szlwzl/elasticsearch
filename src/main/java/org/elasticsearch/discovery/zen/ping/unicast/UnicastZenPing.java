@@ -75,7 +75,7 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
 
     private volatile PingContextProvider contextProvider;
 
-    private final AtomicInteger pingIdGenerator = new AtomicInteger();
+    private final AtomicInteger pingHandlerIdGenerator = new AtomicInteger();
 
     private final Map<Integer, ConcurrentMap<DiscoveryNode, PingResponse>> receivedResponses = newConcurrentMap();
 
@@ -178,7 +178,7 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
 
     @Override
     public void ping(final PingListener listener, final TimeValue timeout) throws ElasticsearchException {
-        final SendPingsHandler sendPingsHandler = new SendPingsHandler(pingIdGenerator.incrementAndGet());
+        final SendPingsHandler sendPingsHandler = new SendPingsHandler(pingHandlerIdGenerator.incrementAndGet());
         receivedResponses.put(sendPingsHandler.id(), ConcurrentCollections.<DiscoveryNode, PingResponse>newConcurrentMap());
         sendPings(timeout, null, sendPingsHandler);
         threadPool.schedule(TimeValue.timeValueMillis(timeout.millis() / 2), ThreadPool.Names.GENERIC, new Runnable() {
@@ -385,19 +385,12 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
                         }
                         ConcurrentMap<DiscoveryNode, PingResponse> responses = receivedResponses.get(response.id);
                         if (responses == null) {
-                            logger.warn("received ping response {} with no matching id [{}]", pingResponse, response.id);
+                            logger.warn("received ping response {} with no matching handler id [{}]", pingResponse, response.id);
                         } else {
                             PingResponse existingResponse = responses.get(pingResponse.node());
-                            if (existingResponse == null) {
+                            // prefer newer pings over old ones
+                            if (existingResponse == null || existingResponse.id() < pingResponse.id()) {
                                 responses.put(pingResponse.node(), pingResponse);
-                            } else {
-                                // try and merge the best ping response for it, i.e. if the new one
-                                // doesn't have the master node set, and the existing one does, then
-                                // the existing one is better, so we keep it
-                                // if both have a master or both have none, we prefer the latest ping
-                                if (existingResponse.master() == null || pingResponse.master() != null) {
-                                    responses.put(pingResponse.node(), pingResponse);
-                                }
                             }
                         }
                     }
