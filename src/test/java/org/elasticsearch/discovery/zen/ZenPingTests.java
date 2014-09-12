@@ -65,7 +65,7 @@ public class ZenPingTests extends ElasticsearchTestCase {
         }
 
         // shuffle
-        Collections.shuffle(pings);
+        Collections.shuffle(pings, getRandom());
 
         ZenPing.PingCollection collection = new ZenPing.PingCollection();
         collection.addPings(pings.toArray(new ZenPing.PingResponse[pings.size()]));
