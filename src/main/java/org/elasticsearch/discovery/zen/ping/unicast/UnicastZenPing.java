@@ -77,7 +77,7 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
 
     private final AtomicInteger pingHandlerIdGenerator = new AtomicInteger();
 
-    private final Map<Integer, ConcurrentMap<DiscoveryNode, PingResponse>> receivedResponses = newConcurrentMap();
+    private final Map<Integer, PingCollection> receivedResponses = newConcurrentMap();
 
     // a list of temporal responses a node will return for a request (holds requests from other configuredTargetNodes)
     private final Queue<PingResponse> temporalResponses = ConcurrentCollections.newQueue();
@@ -179,7 +179,7 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
     @Override
     public void ping(final PingListener listener, final TimeValue timeout) throws ElasticsearchException {
         final SendPingsHandler sendPingsHandler = new SendPingsHandler(pingHandlerIdGenerator.incrementAndGet());
-        receivedResponses.put(sendPingsHandler.id(), ConcurrentCollections.<DiscoveryNode, PingResponse>newConcurrentMap());
+        receivedResponses.put(sendPingsHandler.id(), new PingCollection());
         sendPings(timeout, null, sendPingsHandler);
         threadPool.schedule(TimeValue.timeValueMillis(timeout.millis() / 2), ThreadPool.Names.GENERIC, new Runnable() {
             @Override
@@ -191,13 +191,13 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
                         public void run() {
                             try {
                                 sendPings(timeout, TimeValue.timeValueMillis(timeout.millis() / 2), sendPingsHandler);
-                                ConcurrentMap<DiscoveryNode, PingResponse> responses = receivedResponses.remove(sendPingsHandler.id());
+                                PingCollection responses = receivedResponses.remove(sendPingsHandler.id());
                                 sendPingsHandler.close();
                                 for (DiscoveryNode node : sendPingsHandler.nodeToDisconnect) {
                                     logger.trace("[{}] disconnecting from {}", sendPingsHandler.id(), node);
                                     transportService.disconnectFromNode(node);
                                 }
-                                listener.onPing(responses.values().toArray(new PingResponse[responses.size()]));
+                                listener.onPing(responses.toArray());
                             } catch (EsRejectedExecutionException ex) {
                                 logger.debug("Ping execution rejected", ex);
                             }
@@ -383,15 +383,11 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
                             logger.debug("[{}] filtering out response from {}, not same cluster_name [{}]", id, pingResponse.node(), pingResponse.clusterName().value());
                             continue;
                         }
-                        ConcurrentMap<DiscoveryNode, PingResponse> responses = receivedResponses.get(response.id);
+                        PingCollection responses = receivedResponses.get(response.id);
                         if (responses == null) {
                             logger.warn("received ping response {} with no matching handler id [{}]", pingResponse, response.id);
                         } else {
-                            PingResponse existingResponse = responses.get(pingResponse.node());
-                            // prefer newer pings over old ones
-                            if (existingResponse == null || existingResponse.id() < pingResponse.id()) {
-                                responses.put(pingResponse.node(), pingResponse);
-                            }
+                            responses.addPing(pingResponse);
                         }
                     }
                 } finally {
