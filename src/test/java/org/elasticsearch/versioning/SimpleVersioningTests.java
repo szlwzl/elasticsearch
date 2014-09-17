@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.carrotsearch.randomizedtesting.annotations.Repeat;
 import org.apache.lucene.util.LuceneTestCase.Slow;
 import org.apache.lucene.util.TestUtil;
 import org.elasticsearch.action.ActionResponse;
@@ -53,6 +54,7 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 /**
  *
  */
+@Repeat(iterations = 150)
 public class SimpleVersioningTests extends ElasticsearchIntegrationTest {
 
     @Test

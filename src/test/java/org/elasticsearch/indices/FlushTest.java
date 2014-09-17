@@ -18,6 +18,7 @@
  */
 package org.elasticsearch.indices;
 
+import com.carrotsearch.randomizedtesting.annotations.Repeat;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.flush.FlushResponse;
 import org.elasticsearch.test.ElasticsearchIntegrationTest;
@@ -32,6 +33,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.emptyIterable;
 import static org.hamcrest.Matchers.equalTo;
 
+@Repeat(iterations = 300)
 public class FlushTest extends ElasticsearchIntegrationTest {
 
     @Test
