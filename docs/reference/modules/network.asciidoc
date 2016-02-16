@@ -99,7 +99,7 @@ installed.
 
 The `network.host` setting explained in <<common-network-settings,Commonly used network settings>>
 is a shortcut which sets the _bind host_ and the _publish host_ at the same
-time. In advanced used cases, such as when running behind a proxy server, you
+time. In advanced use cases, such as when running behind a proxy server, you
 may need to set these settings to different values:
 
 `network.bind_host`::
